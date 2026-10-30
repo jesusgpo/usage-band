@@ -22,22 +22,8 @@ export type Usage = {
   context: ContextFigures | null
 }
 
-export type AgentStatus =
-  | 'pending'
-  | 'running'
-  | 'waiting'
-  | 'idle'
-  | 'completed'
-  | 'failed'
-  | 'killed'
-
-export type SeenAgent = {
-  id: string
-  status: AgentStatus
-}
-
 declare module 'claude-code' {
   interface PluginState {
-    'usage-band': { usage: Usage | null; agents: SeenAgent[] }
+    'usage-band': { usage: Usage | null }
   }
 }

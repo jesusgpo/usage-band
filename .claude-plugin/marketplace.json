@@ -3,12 +3,12 @@
   "owner": {
     "name": "Jesús García Potes"
   },
-  "description": "Band above the prompt with your Claude Code usage: 5h and 7d windows, context, session cost, RAM and subagents.",
+  "description": "Band above the prompt with your Claude Code usage: 5h and 7d windows, context, session cost and RAM.",
   "plugins": [
     {
       "name": "usage-band",
       "source": "./",
-      "description": "Always-on band and /consumo pane with your 5h and 7d usage windows, context, session cost, RAM and subagents by state."
+      "description": "Always-on band and /consumo pane with your 5h and 7d usage windows, context, session cost and RAM."
     }
   ]
 }

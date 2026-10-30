@@ -1,7 +1,5 @@
 import type { Usage } from '../types'
 
-import { altText as agentsAlt, headline, label, shown } from './agents'
-import type { Summary } from './agents'
 import { clamp, money, number, resetIn } from './format'
 
 const FONT = `-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`
@@ -13,14 +11,11 @@ const STYLE = `<style>
   .card { fill: #ffffff; stroke: #e6e1d8; }
   .track { fill: #ebe6dd; } .fill { fill: #d97757; } .hot { fill: #c0453a; }
   .ring-track { stroke: #e6e1d8; } .ring { stroke: #d97757; } .ring-hot { stroke: #c0453a; }
-  .sep { stroke: #e6e1d8; }
-  .working { fill: #d97757; } .waiting { fill: #c99a2e; }
-  .done { fill: #5a9a6e; } .failed { fill: #c0453a; }
   @media (prefers-color-scheme: dark) {
     .bg { fill: #1f1e1d; stroke: #3f3e3b; }
     .t { fill: #f5f4ef; } .m { fill: #a6a39b; }
     .card { fill: #30302e; stroke: #3f3e3b; }
-    .track { fill: #3f3e3b; } .ring-track { stroke: #3f3e3b; } .sep { stroke: #3f3e3b; }
+    .track { fill: #3f3e3b; } .ring-track { stroke: #3f3e3b; }
   }
 </style>`
 
@@ -107,11 +102,8 @@ export const paneSvg = (u: Usage, now: number) => {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${outerW}" height="${outerH}" viewBox="0 0 ${outerW} ${outerH}">${STYLE}<rect class="bg" x="0.5" y="0.5" width="${outerW - 1}" height="${outerH - 1}" rx="16"/><g transform="translate(${PAD} ${PAD})">${parts.join('')}</g></svg>`
 }
 
-/**
- * The band above the prompt: a ring per meter, then the session cost, then
- * the session's subagents (a dot and a count per state) once it has one.
- */
-export const bandSvg = (u: Usage | null, now: number, agents: Summary | null) => {
+/** The band above the prompt: a ring per meter, then the session cost. */
+export const bandSvg = (u: Usage, now: number) => {
   const H = 36
   const R = 11
   const C = 2 * Math.PI * R
@@ -119,7 +111,7 @@ export const bandSvg = (u: Usage | null, now: number, agents: Summary | null) =>
   let x = 12
 
   // The band drops the window names: each ring reads "9% · reset 4 h 14".
-  const short: Meter[] = (u === null ? [] : meters(u, now)).map(m => ({
+  const short: Meter[] = meters(u, now).map(m => ({
     ...m,
     label: m.label.startsWith('Ventana ') ? '' : m.label.replace('RAM usada', 'RAM'),
     detail: m.detail.replace(' tokens', ''),
@@ -145,48 +137,19 @@ export const bandSvg = (u: Usage | null, now: number, agents: Summary | null) =>
     x = tx + head.length * 7.4 + tail.length * 6.3 + 16
   }
 
-  if (u !== null && u.cost !== null) {
+  if (u.cost !== null) {
     parts.push(
       `<text x="${x}" y="${H / 2 + 4.5}" font-size="13"><tspan class="m">Coste </tspan><tspan class="t" font-weight="600">${esc(money(u.cost))}</tspan></text>`,
     )
     x += 110
   }
 
-  let W = Math.ceil(x)
-  let height = H
-
-  // The subagents get a second row inside the same frame, so the band keeps
-  // its width (a wider one is shrunk to fit the slot, text and all).
-  if (agents !== null && agents.total > 0) {
-    const ROW = 28
-    const top = parts.length > 0 ? H - 6 : 0
-    const cy = top + (parts.length > 0 ? ROW / 2 : H / 2)
-    if (parts.length > 0) {
-      parts.push(`<line class="sep" x1="14" y1="${top}" x2="${W - 14}" y2="${top}" stroke-width="1"/>`)
-    }
-    let ax = 16
-    const head = headline(agents.total)
-    parts.push(
-      `<text class="t" x="${ax}" y="${cy + 4.5}" font-size="13" font-weight="600">${esc(head)}</text>`,
-    )
-    ax += head.length * 7.4 + 16
-    for (const group of shown(agents)) {
-      const text = label(group, agents.counts[group])
-      parts.push(`<circle class="${group}" cx="${ax + 4.5}" cy="${cy}" r="4.5"/>`)
-      parts.push(`<text class="m" x="${ax + 14}" y="${cy + 4.5}" font-size="13">${esc(text)}</text>`)
-      ax += 14 + text.length * 6.6 + 16
-    }
-    W = Math.max(W, Math.ceil(ax))
-    height = parts.length > 0 && top > 0 ? top + ROW + 4 : H
-  }
-
-  const rx = Math.min(H / 2, height / 2)
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">${STYLE}<rect class="bg" x="0.5" y="0.5" width="${W - 1}" height="${height - 1}" rx="${rx}"/>${parts.join('')}</svg>`
+  const W = Math.ceil(x)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${STYLE}<rect class="bg" x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="${H / 2}"/>${parts.join('')}</svg>`
 }
 
-export const altText = (u: Usage | null, now: number, agents: Summary | null = null) =>
-  (u === null ? [] : meters(u, now))
+export const altText = (u: Usage, now: number) =>
+  meters(u, now)
     .map(m => `${m.label}: ${m.percent === null ? 'sin datos' : `${number(clamp(m.percent))}%`}${m.detail === '' ? '' : `, ${m.detail}`}`)
-    .concat(u === null || u.cost === null ? [] : [`Coste sesión: ${money(u.cost)}`])
-    .concat(agents === null || agents.total === 0 ? [] : [agentsAlt(agents)])
+    .concat(u.cost === null ? [] : [`Coste sesión: ${money(u.cost)}`])
     .join('. ')

@@ -1,33 +1,16 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { Register } from 'claude-code'
 
-import type { ContextFigures, SeenAgent, Usage, UsageWindow } from '../types'
+import type { ContextFigures, Usage, UsageWindow } from '../types'
 
-import { headline, label, merge, sameAgents, shown, summarize } from './agents'
 import { clamp, money, number, resetIn } from './format'
 import { readRam } from './ram'
 import { altText, bandSvg, paneSvg } from './svg'
 
 const usage = atom({ plugin: 'usage-band', key: 'usage' } as const, null)
-const agents = atom({ plugin: 'usage-band', key: 'agents' } as const, [])
 
 const PANE = 'usage-pane'
 const REFRESH_MS = 30_000
-// Subagents move faster than the usage figures: events move them as agents
-// start, use tools and finish turns, and this poll catches the rest (one
-// that fails or is stopped).
-const AGENTS_MS = 3_000
-
-const refreshAgents = async ($: EngineInterface) => {
-  const listed: SeenAgent[] = (await $.agent.list()).map(agent => ({
-    id: agent.id,
-    status: agent.status,
-  }))
-  const seen = await read($, agents)
-  const next = merge(seen, listed)
-
-  if (!sameAgents(seen, next)) await update($, agents, () => next)
-}
 
 const windowText = (window: UsageWindow | null, now: number) =>
   window === null
@@ -80,42 +63,7 @@ export const register: Register = on => {
       void refresh().catch(() => undefined)
     })
 
-    void refreshAgents($).catch(() => undefined)
-    $.clock.every(AGENTS_MS, () => {
-      void refreshAgents($).catch(() => undefined)
-    })
-
     return next(e)
-  })
-
-  on('agent.spawn', async ($, e, next) => {
-    const result = await next(e)
-    void refreshAgents($).catch(() => undefined)
-
-    return result
-  })
-
-  on('turn.start', async ($, e, next) => {
-    const result = await next(e)
-    if (e.agentId !== undefined) void refreshAgents($).catch(() => undefined)
-
-    return result
-  })
-
-  on('turn.complete', async ($, e, next) => {
-    const result = await next(e)
-    if (e.agentId !== undefined) void refreshAgents($).catch(() => undefined)
-
-    return result
-  })
-
-  on('tool.call', async ($, e, next) => {
-    const result = await next(e)
-    if (e.agentId !== undefined || e.tool === 'Agent') {
-      void refreshAgents($).catch(() => undefined)
-    }
-
-    return result
   })
 
   on('command.run', { command: 'consumo' }, async $ => {
@@ -126,38 +74,25 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const figures = await read($, usage)
-    const seen = await read($, agents)
-    if (figures === null && seen.length === 0) return next(e)
+    if (figures === null) return next(e)
 
     const now = await $.clock.now()
-    const summary = seen.length === 0 ? null : summarize(seen)
 
     if (e.surface !== 'terminal') {
       const { Svg } = $.ui.resolve(e)
-      return (
-        <Svg source={bandSvg(figures, now, summary)} alt={altText(figures, now, summary)} />
-      )
+      return <Svg source={bandSvg(figures, now)} alt={altText(figures, now)} />
     }
 
     const { Box, Text } = $.ui.resolve(e)
     const ram =
-      figures === null || figures.ram === null
+      figures.ram === null
         ? 'RAM —'
         : `RAM ${number(figures.ram.usedGiB)} / ${number(figures.ram.totalGiB)} GiB`
-    const subagents =
-      summary === null
-        ? ''
-        : `   ${headline(summary.total)}: ${shown(summary)
-            .map(group => label(group, summary.counts[group]))
-            .join(' · ')}`
 
     return (
       <Box>
         <Text dimColor>
-          {figures === null
-            ? ''
-            : `${windowText(figures.fiveHour, now)}   ${windowText(figures.sevenDay, now)}   ${contextText(figures.context)}   ${ram}`}
-          {subagents}
+          {windowText(figures.fiveHour, now)}   {windowText(figures.sevenDay, now)}   {contextText(figures.context)}   {ram}
         </Text>
       </Box>
     )

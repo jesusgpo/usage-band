@@ -1,6 +1,6 @@
 # usage-band
 
-A Claude Code mod that shows your usage above the prompt: the 5-hour and 7-day limits, the context window, the session cost, RAM, and the session's subagents grouped by state. `/consumo` opens a full panel with the same figures.
+A Claude Code mod that shows your usage above the prompt: the 5-hour and 7-day limits, the context window, the session cost and RAM. `/consumo` opens a full panel with the same figures.
 
 ## Install
 
@@ -15,11 +15,10 @@ A Claude Code mod that shows your usage above the prompt: the 5-hour and 7-day l
 - **Contexto:** percentage of the context window in use.
 - **Coste sesión:** what the session has cost so far.
 - **RAM:** memory in use (Linux, Windows and macOS).
-- **Subagentes:** how many the session has, and how many are working, waiting, done or failed. Shown only when there are any.
 
 ## Development
 
-The tests run with `claude plugin test .`, and the manifest is checked with `claude plugin validate .`.
+The manifest is checked with `claude plugin validate .`.
 
 ## License
 
